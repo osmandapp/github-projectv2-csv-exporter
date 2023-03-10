@@ -95,8 +95,7 @@ export const GitHubProjectExporter = (props: GitHubProjectExporterProps) => {
 
       fetchProjectItems(login, !!isOrg, projectNumber, accessToken, progress)
         .then((projectItems) => {
-          const dataRows = projectItems
-            .filter((item) => {
+          const dataItems = projectItems.filter((item) => {
               return (
                 (includeIssues ? true : item.getType() !== 'ISSUE') &&
                 (includePullRequests ? true : item.getType() !== 'PULL_REQUEST') &&
@@ -104,34 +103,51 @@ export const GitHubProjectExporter = (props: GitHubProjectExporterProps) => {
                 (includeClosedItems ? true : item.getState() !== 'CLOSED') &&
                 (!columnFilterEnabled ? true : selectedColumnNames.includes(item.getStatus() ?? ''))
               );
-            })
-            .map((item) => {
+            });
+          dataItems.sort((item1, item2) => {
+              let d1 = item1.getIterationDate() ?? '';
+              let d2 = item2.getIterationDate() ?? '';
+              let vl = d1 === d2 ? `${item1.getNumber()}`.localeCompare(`${item2.getNumber()}`) : `${d1}`.localeCompare(`${d2}`);
+              // console.log(vl + " " + d1 + " " + d2)
+              return vl;
+          });
+          const dataRows = dataItems.map((item) => {
               const rawTitle = item.getTitle() ?? '';
               const rawStatus = item.getStatus() ?? '';
               return {
-                Title: (removeTitleEmojis ? rawTitle.split(emojiRegex()).join('') : rawTitle).trim(),
-                Number: item.getNumber() ?? '',
+                URL: item.getUrl() ?? '',
+                ID: (item.getRepo() ?? '')+ ':' + (item.getNumber() ?? ''),
                 Status: (removeStatusEmojis ? rawStatus.split(emojiRegex()).join('') : rawStatus).trim(),
+                Iteration: item.getIteration() ?? '',
+                IterationDate: item.getIterationDate() ?? '',
+                Title: (removeTitleEmojis ? rawTitle.split(emojiRegex()).join('') : rawTitle).trim(),
                 Assignees:
                   item
                     .getAssignees()
                     ?.map((a) => a.name)
-                    .join(', ') ?? '',
+                    .join('; ') ?? '',
                 'Assignee Usernames':
                   item
                     .getAssignees()
                     ?.map((a) => a.login)
-                    .join(', ') ?? '',
-                Labels: item.getLabels()?.join(', ') ?? '',
-                URL: item.getUrl() ?? '',
+                    .join('; ') ?? '',
+                Labels: item.getLabels()?.join('; ') ?? '',
                 Milestone: item.getMilestone() ?? '',
-                Author: item.getAuthor()?.name ?? '',
-                'Author Username': item.getAuthor()?.login ?? '',
+                // Author: item.getAuthor()?.name ?? '',
+                // 'Author Username': item.getAuthor()?.login ?? '',
                 CreatedAt: item.getCreatedAt() ?? '',
-                UpdatedAt: item.getUpdatedAt() ?? '',
+                // UpdatedAt: item.getUpdatedAt() ?? '',
                 ClosedAt: item.getClosedAt() ?? '',
+                OptimalTime: item.getOptimalTime() ?? '',
+                Complexity: item.getComplexity() ?? '',
+                Time: item.getTime() ?? '',
+                Review: item.getReview() ?? '',
+                Individual: item.getIndividual() ?? '',
                 Type: item.getType() ?? '',
+                Estimate: item.getEstimate() ?? '',
+                EstComplexity: item.getEstComplexity() ?? '',
                 State: item.getState() ?? '',
+
               };
             });
           // The en-ZA locale uses YYYY/MM/DD. We then replace all / with -.
@@ -142,21 +158,22 @@ export const GitHubProjectExporter = (props: GitHubProjectExporterProps) => {
               ? knownColumns.map((c) => c.split(emojiRegex()).join('').trim())
               : knownColumns;
             // Group by Status, Assignee, then sort by issue number.
-            dataRows.sort((a, b) => {
-              // Convert known statuses to characters alphabetically matching the defined Status column order.
-              // Such as: a, b, c, etc. Then prefix them with tilde '~' to group them together.
-              // That way, the statuses will sort based on the column order. All unknown columns will fall back
-              // to alphabetical sorting.
-              const aStatusPlaceholder = formattedColumnNames.includes(a.Status)
-                ? '~' + String.fromCharCode('a'.charCodeAt(0) + formattedColumnNames.indexOf(a.Status))
-                : a.Status;
-              const bStatusPlaceholder = formattedColumnNames.includes(b.Status)
-                ? '~' + String.fromCharCode('a'.charCodeAt(0) + formattedColumnNames.indexOf(b.Status))
-                : b.Status;
-              return `${aStatusPlaceholder}.${a.Assignees}.${a.Number}`.localeCompare(
-                `${bStatusPlaceholder}.${b.Assignees}.${b.Number}`,
-              );
-            });
+            // disable sorting
+            // dataRows.sort((a, b) => {
+            //   // Convert known statuses to characters alphabetically matching the defined Status column order.
+            //   // Such as: a, b, c, etc. Then prefix them with tilde '~' to group them together.
+            //   // That way, the statuses will sort based on the column order. All unknown columns will fall back
+            //   // to alphabetical sorting.
+            //   const aStatusPlaceholder = formattedColumnNames.includes(a.Status)
+            //     ? '~' + String.fromCharCode('a'.charCodeAt(0) + formattedColumnNames.indexOf(a.Status))
+            //     : a.Status;
+            //   const bStatusPlaceholder = formattedColumnNames.includes(b.Status)
+            //     ? '~' + String.fromCharCode('a'.charCodeAt(0) + formattedColumnNames.indexOf(b.Status))
+            //     : b.Status;
+            //   return `${aStatusPlaceholder}.${a.Assignees}.${a.Number}`.localeCompare(
+            //     `${bStatusPlaceholder}.${b.Assignees}.${b.Number}`,
+            //   );
+            // });
             exportCsv(dataRows, filename);
             setShowStarMessage(true);
           } else {

@@ -138,7 +138,6 @@ export const fetchProjectItems = async (
       $itemsAfter: String
       $assigneesFirst: Int
       $labelsFirst: Int
-      $statusFieldName: String!
     ) {
       entity: ${isOrg ? 'organization' : 'user'}(login: $login) {
         projectV2(number: $projectNumber) {
@@ -148,8 +147,12 @@ export const fetchProjectItems = async (
               node {
                 content {
                   ... on Issue {
+                    number
                     title
                     url
+                    repo: repository {
+                      name
+                    }
                     issueState: state
                     assignees(first: $assigneesFirst) {
                       nodes {
@@ -181,36 +184,15 @@ export const fetchProjectItems = async (
                       }
                     }
                     body
-                    number
                     closedAt
                   }
-                  ... on DraftIssue {
-                    title
-                    author: creator {
-                      login
-                      ... on User {
-                        name
-                        login
-                      }
-                      ... on Organization {
-                        name
-                        login
-                      }
-                      ... on EnterpriseUserAccount {
-                        name
-                        login
-                      }
-                    }
-                    assignees(first: $assigneesFirst) {
-                      nodes {
-                        login
-                        name
-                      }
-                    }
-                    body
-                  }
                   ... on PullRequest {
+                    number
                     title
+                    url
+                    repo: repository {
+                      name
+                    }
                     assignees(first: $assigneesFirst) {
                       nodes {
                         name
@@ -219,8 +201,6 @@ export const fetchProjectItems = async (
                     }
                     body
                     pullRequestState: state
-                    url
-                    number
                     author {
                       ... on User {
                         name
@@ -241,7 +221,49 @@ export const fetchProjectItems = async (
                 createdAt
                 updatedAt
                 isArchived
-                status: fieldValueByName(name: $statusFieldName) {
+                iteration: fieldValueByName(name: "Iteration") {
+                  ... on ProjectV2ItemFieldIterationValue { 
+                    iterationId
+                    startDate 
+                    title
+                  }
+                }
+                complexity: fieldValueByName(name: "Complexity (10)") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                review: fieldValueByName(name: "Review (5)") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                individual: fieldValueByName(name: "Individual (5)") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number 
+                  }
+                }
+                time: fieldValueByName(name: "Time") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                optimalTime: fieldValueByName(name: "Optimal Time") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                estcomplexity: fieldValueByName(name: "Complexity (Est)") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                estimate: fieldValueByName(name: "Estimate") {
+                  ... on ProjectV2ItemFieldNumberValue { 
+                    number
+                  }
+                }
+                status: fieldValueByName(name: "Status") {
                   ... on ProjectV2ItemFieldSingleSelectValue {
                     name
                   }
@@ -262,17 +284,17 @@ export const fetchProjectItems = async (
   let loadedEdges: any[] = [];
   let loadedAll = false;
   // We can only load 100 at a time. So we use cursors to load all issues.
+  const LOADMAX = 100;
   while (!loadedAll) {
     queryResults = await client.query({
       query: PROJECT_ITEMS_QUERY,
       variables: {
         login,
         projectNumber,
-        itemsFirst: 100,
+        itemsFirst: LOADMAX,
         itemsAfter,
-        assigneesFirst: 100,
-        labelsFirst: 100,
-        statusFieldName: 'Status',
+        assigneesFirst: LOADMAX,
+        labelsFirst: LOADMAX
       },
     });
     const totalCount = queryResults.data?.entity?.projectV2?.items?.totalCount ?? 0;
@@ -335,10 +357,40 @@ export class ProjectItem {
   public getNumber(): string | undefined {
     return this.node?.content?.number;
   }
+  public getRepo(): string | undefined {
+    return this.node?.content?.repo?.name;
+  }
   public getTitle(): string | undefined {
     return this.node?.content?.title;
   }
   public getUrl(): string | undefined {
     return this.node?.content?.url;
+  }
+  public getComplexity(): string | undefined {
+    return this.node?.complexity?.number;
+  }
+  public getEstimate(): string | undefined {
+    return this.node?.estimate?.number;
+  }
+  public getEstComplexity(): string | undefined {
+    return this.node?.estcomplexity?.number;
+  }
+  public getIteration(): string | undefined {
+    return this.node?.iteration?.title;
+  }
+  public getIterationDate(): string | undefined {
+    return this.node?.iteration?.startDate;
+  }
+  public getTime(): string | undefined {
+    return this.node?.time?.number;
+  }
+  public getOptimalTime(): string | undefined {
+    return this.node?.optimalTime?.number;
+  }
+  public getIndividual(): string | undefined {
+    return this.node?.individual?.number;
+  }
+  public getReview(): string | undefined {
+    return this.node?.review?.number;
   }
 }
